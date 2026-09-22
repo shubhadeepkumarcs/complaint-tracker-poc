@@ -2,13 +2,14 @@ import sqlite3
 import pandas as pd
 import streamlit as st
 from datetime import datetime
+import socket
 
 # --- DATABASE SETUP ---
 def init_db():
     conn = sqlite3.connect("tracker_poc.db", check_same_thread=False)
     cursor = conn.cursor()
     
-    # Complaints Table (Added status_changed_time for tracking duration per status)
+    # Complaints Table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS complaints (
             serial_number TEXT PRIMARY KEY,
@@ -90,8 +91,17 @@ st.set_page_config(page_title="Field Service & Complaint Manager", layout="wide"
 st.title("🛠️ Field Service & Complaint Management System")
 st.markdown("---")
 
-user_role = st.sidebar.selectbox("Simulate User / Role", ["Technician / User", "Manager"])
-current_user = st.sidebar.text_input("Logged-in Username", "Shubhadeep")
+# --- SIDEBAR: IP DETECTION & USER IDENTIFICATION ---
+try:
+    machine_ip = socket.gethostbyname(socket.gethostname())
+except Exception:
+    machine_ip = "127.0.0.1"
+
+st.sidebar.markdown("### 🖥️ Session Details")
+st.sidebar.info(f"**Machine IP / Host:** `{machine_ip}`")
+
+user_role = st.sidebar.selectbox("Select Role", ["Technician / User", "Manager"])
+current_user = st.sidebar.text_input("Set Your Username", "Shubhadeep")
 
 tabs = st.tabs(["1. Incident Logger & Stages", "2. Inventory & PO Approvals", "3. Audit Trail & Version History", "4. Monthly & Detailed Reports"])
 
@@ -160,17 +170,15 @@ with tabs[0]:
             cursor.execute("SELECT status, assigned_technician, resolution_notes, status_changed_time FROM complaints WHERE serial_number = ?", (selected_serial,))
             curr_status, curr_tech, curr_notes, curr_status_time = cursor.fetchone()
             
-            # Calculate days pending in current status
-    if curr_status_time:
-        try:
-            dt_start = datetime.strptime(curr_status_time, "%Y-%m-%d %H:%M:%S")
-            days_pending = (datetime.now() - dt_start).days
-            hours_pending = (datetime.now() - dt_start).seconds // 3600
-            st.info(f"⏱️ **Time in Current Status (`{curr_status}`):** {days_pending} days, {hours_pending} hours")
-        except Exception:
-            st.info(f"⏱️ **Current Status:** {curr_status}")
+            if curr_status_time:
+                try:
+                    dt_start = datetime.strptime(curr_status_time, "%Y-%m-%d %H:%M:%S")
+                    days_pending = (datetime.now() - dt_start).days
+                    hours_pending = (datetime.now() - dt_start).seconds // 3600
+                    st.info(f"⏱️ **Time in Current Status (`{curr_status}`):** {days_pending} days, {hours_pending} hours")
+                except Exception:
+                    st.info(f"⏱️ **Current Status:** {curr_status}")
             
-            # Workflow options including PO Quotation statuses
             workflow_options = [
                 "1. Call Log", 
                 "2. Video Call Support Queue", 
@@ -190,7 +198,6 @@ with tabs[0]:
             if st.button("Update Stage / Close Ticket"):
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 
-                # If status changed, update status_changed_time clock
                 if new_status != curr_status:
                     log_change(conn, selected_serial, current_user, "Status", curr_status, new_status)
                     cursor.execute("""
@@ -360,7 +367,6 @@ with tabs[3]:
     complaints_df = pd.read_sql("SELECT * FROM complaints", conn)
     
     if not complaints_df.empty:
-        # Calculate live days pending in current status for reporting
         def calc_days_pending(val):
             if pd.isna(val):
                 return 0
