@@ -161,14 +161,14 @@ with tabs[0]:
             curr_status, curr_tech, curr_notes, curr_status_time = cursor.fetchone()
             
             # Calculate days pending in current status
-           if curr_status_time:
-                try:
-                    dt_start = datetime.strptime(curr_status_time, "%Y-%m-%d %H:%M:%S")
-                    days_pending = (datetime.now() - dt_start).days
-                    hours_pending = (datetime.now() - dt_start).seconds // 3600
-                   st.info(f"⏱️ **Time in Current Status (`{curr_status}`):** {days_pending} days, {hours_pending} hours")
-                except Exception:
-                    st.info(f"⏱️ **Current Status:** {curr_status}")
+    if curr_status_time:
+        try:
+            dt_start = datetime.strptime(curr_status_time, "%Y-%m-%d %H:%M:%S")
+            days_pending = (datetime.now() - dt_start).days
+            hours_pending = (datetime.now() - dt_start).seconds // 3600
+            st.info(f"⏱️ **Time in Current Status (`{curr_status}`):** {days_pending} days, {hours_pending} hours")
+        except Exception:
+            st.info(f"⏱️ **Current Status:** {curr_status}")
             
             # Workflow options including PO Quotation statuses
             workflow_options = [
